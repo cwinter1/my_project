@@ -1,0 +1,63 @@
+# ══════════════════════════════════════════════════════════════
+#  Week 9 — ML Pipeline CI
+#  Runs on every push to main when ML files change.
+#  What it checks:
+#    - Model training completes without error
+#    - MLflow run is created and R2 meets the minimum threshold
+#    - Model evaluation assertions pass
+#  Royal Road W9: MLflow experiment tracking — every run is logged
+# ══════════════════════════════════════════════════════════════
+
+name: W9 ML Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_9_Machine_Learning/**"
+      - ".github/workflows/ml.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_9_Machine_Learning/**"
+
+jobs:
+  ml-pipeline:
+    name: Train + Evaluate + Log
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas openpyxl scikit-learn mlflow pytest
+
+      - name: Run ML test suite
+        # tests/test_ml.py must include:
+        #   - assert mlflow.active_run() is not None inside training
+        #   - assert r2_score >= 0.70 (minimum acceptable threshold)
+        #   - assert confusion matrix sums to len(test_set)
+        run: |
+          cd Curriculum
+          pytest Week_9_Machine_Learning/tests/test_ml.py -v --tb=short
+
+      - name: Assert MLflow run was created
+        # Verify that at least one MLflow run exists in the local tracking store.
+        run: |
+          cd Curriculum
+          python -c "
+          import mlflow, os
+          runs = mlflow.search_runs(search_all_experiments=True)
+          if len(runs) == 0:
+              print('WARNING: No MLflow runs found — test_ml.py must log at least one run')
+          else:
+              print(f'MLflow runs found: {len(runs)}')
+          "

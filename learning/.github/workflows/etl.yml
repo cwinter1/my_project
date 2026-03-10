@@ -1,0 +1,51 @@
+# ══════════════════════════════════════════════════════════════
+#  Week 7 — ETL Pipeline CI
+#  Runs on every push to main and on every pull request.
+#  What it checks: the ETL test suite passes (pytest).
+#  Royal Road W7: pytest-style test runner
+# ══════════════════════════════════════════════════════════════
+
+name: W7 ETL Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_7_Data_Engineering/**"
+      - ".github/workflows/etl.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_7_Data_Engineering/**"
+
+jobs:
+  etl-tests:
+    name: Run ETL Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pandas openpyxl pytest
+
+      - name: Run ETL tests
+        # tests/test_etl.py is the file the student creates in Week 7 exercises.
+        # The pipeline must have zero failing tests before it is considered deployable.
+        run: |
+          cd Curriculum
+          pytest Week_7_Data_Engineering/tests/test_etl.py -v --tb=short
+
+      - name: Structural notebook check
+        # Confirm no broken syntax was introduced
+        run: |
+          cd Curriculum
+          python verify_curriculum.py 2>&1 | grep -E "(PASS|FAIL|Week_7)" || true

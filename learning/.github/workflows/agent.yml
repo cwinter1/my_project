@@ -1,0 +1,86 @@
+# ══════════════════════════════════════════════════════════════
+#  Week 11 — Agent & Guardrails CI
+#  Runs on every push when agent files change.
+#  What it checks:
+#    - Guardrail middleware blocks known-bad inputs
+#    - Guardrail middleware passes known-good inputs
+#    - Multi-agent contract: Supervisor routes correctly to subagents
+#  Royal Road W11: Guardrails as middleware (input + output validation)
+#
+#  NOTE: LLM calls are mocked (MOCK_LLM=true). No API key required in CI.
+# ══════════════════════════════════════════════════════════════
+
+name: W11 Agent & Guardrails
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_11_Advanced_AI/**"
+      - ".github/workflows/agent.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_11_Advanced_AI/**"
+
+jobs:
+  guardrail-tests:
+    name: Guardrail Smoke Test
+    runs-on: ubuntu-latest
+
+    env:
+      MOCK_LLM: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pydantic pytest langchain langchain-core langgraph
+
+      - name: Run guardrail tests
+        # tests/test_guardrails.py must include:
+        #   - Known prompt injection string is blocked (returns error, not output)
+        #   - PII pattern (email address in input) is flagged or sanitized
+        #   - Valid business query passes through the guardrail unchanged
+        run: |
+          cd Curriculum
+          pytest Week_11_Advanced_AI/tests/test_guardrails.py -v --tb=short
+
+  agent-contract-tests:
+    name: Multi-Agent Contract Test
+    runs-on: ubuntu-latest
+    needs: guardrail-tests
+
+    env:
+      MOCK_LLM: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pydantic pytest langchain langchain-core langgraph
+
+      - name: Run multi-agent contract tests
+        # tests/test_agent.py must include:
+        #   - Supervisor routes READ query to SQL Writer, not Safety Guard
+        #   - Safety Guard blocks a DROP TABLE query
+        #   - Full pipeline: NL input -> Supervisor -> SQL Writer -> Safety Guard -> output
+        run: |
+          cd Curriculum
+          pytest Week_11_Advanced_AI/tests/test_agent.py -v --tb=short

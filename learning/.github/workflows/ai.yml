@@ -1,0 +1,80 @@
+# ══════════════════════════════════════════════════════════════
+#  Week 10 — AI Engineering CI
+#  Runs on every push when AI files change.
+#  What it checks:
+#    - Golden prompt regression: known prompt -> expected output shape
+#    - LangSmith trace ID is created per LLM call (mocked in CI)
+#    - Pydantic output models validate correctly
+#  Royal Road W10: LangSmith tracing wired into every LLM call
+#
+#  NOTE: Live LLM calls are mocked in CI using MOCK_LLM=true.
+#  Full integration tests run manually or with a secrets-protected job.
+# ══════════════════════════════════════════════════════════════
+
+name: W10 AI Engineering
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_10_AI_Engineering/**"
+      - ".github/workflows/ai.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Curriculum/Week_10_AI_Engineering/**"
+
+jobs:
+  ai-contract-tests:
+    name: Prompt Regression + Schema Validation
+    runs-on: ubuntu-latest
+
+    env:
+      # Set to true so tests use mocked LLM responses instead of live API calls.
+      # This means CI never needs an OpenAI or Anthropic key.
+      MOCK_LLM: "true"
+      LANGCHAIN_TRACING_V2: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pydantic pytest langchain langchain-core
+
+      - name: Run AI contract tests
+        # tests/test_ai.py must include:
+        #   - Pydantic output model validates known-good JSON
+        #   - Pydantic output model rejects known-bad JSON (ValidationError)
+        #   - Golden output regression: compare prompt result to saved snapshot
+        #     (snapshot stored in tests/snapshots/golden_output.json)
+        run: |
+          cd Curriculum
+          pytest Week_10_AI_Engineering/tests/test_ai.py -v --tb=short
+
+      - name: Validate prompt registry format
+        # Prompt versioning: each prompt in the registry must have
+        # name, version, template, and output_schema fields.
+        run: |
+          cd Curriculum
+          python -c "
+          import json, os, sys
+          registry_path = 'Week_10_AI_Engineering/prompt_registry.json'
+          if not os.path.exists(registry_path):
+              print('No prompt_registry.json found — skipping validation')
+              sys.exit(0)
+          with open(registry_path) as f:
+              registry = json.load(f)
+          required = {'name', 'version', 'template', 'output_schema'}
+          for entry in registry:
+              missing = required - entry.keys()
+              assert not missing, f'Prompt entry missing fields: {missing}'
+          print(f'Prompt registry valid: {len(registry)} entries')
+          "

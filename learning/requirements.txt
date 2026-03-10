@@ -1,0 +1,27 @@
+# Core
+numpy
+pandas
+matplotlib
+seaborn
+openpyxl
+
+# Machine Learning
+scikit-learn
+joblib
+mlflow
+
+# Database
+sqlalchemy
+pyodbc
+
+# Data Engineering
+requests
+boto3
+pyspark
+apache-airflow
+pytest
+pydantic
+
+# Web Scraping
+selenium
+webdriver-manager
